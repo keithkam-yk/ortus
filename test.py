@@ -11,59 +11,78 @@ ax = fig.add_axes(bounds, frameon=False)
 ax.set_xlim(0, 1), ax.set_xticks([])
 ax.set_ylim(0, 1), ax.set_yticks([])
 
-n_cells = 75
+n_cells = 74
 d_cells = 0.03
 
 dis1 = 0.01
 dis2 = 0.03
 dis3 = 0.05
-rep_lim = 0.007
+rep_lim = 0.01
 adh_lim = 0.0005
 v_max = 0.002
 heat =  0.0015
 
-A = np.array([[3,    1.5],
+A = np.array([[3,    1.5],      # Adhesin interactions
               [1.5,  3  ]])
 
-E_A = np.array([[0.2,    0],
+E_A = np.array([[0.2,    0],    # Expression of adhesin
                 [0,    0.2]])
 
-E_T = np.array([[0.5,    0],
+E_T = np.array([[0.5,    0],    # Expression of transcription factor
                 [0,    0.5]])
 
-W_T = np.array([[1,    1],
+E_S = np.array([[0.5,    0],    # Expression of surface signal 
+                [0,    0.5]])
+
+E_R = np.array([[0.5,    0],    # Expression of receptor
+                [0,    0.5]])
+
+W_T = np.array([[1,    1],      # Weighting of transcription factor activation
                 [1,    1]])
 
-W_B = np.array([0.1,   0.1])
+W_B = np.array([0.1,   0.1])    # Weighting of basal activation
 
-T_T = np.array([[5,    -5],
+W_S = np.array([[0,    1],      # Weighting of surface signal to receptor 
+                [1,    0]])
+
+T_T = np.array([[5,    -5],     # Target activation level for transcription factors
                 [-5,    5]])
 
-T_B = np.array([1,    1])
+T_B = np.array([1,    1])       # Target activation level for basal actication
 
-WT_T = np.multiply(W_T,T_T)
+T_R = np.array([[0,    0],     # Target activation level for receptors
+                [0,    0]])
 
-D_A = np.array([0.1,    0.1])
+D_A = np.array([0.1,    0.1])   # Decay rate for adhesin
 
-D_T = np.array([0.1,    0.1])
+D_T = np.array([0.1,    0.1])   # Decay rate for transcription factor
 
-H = np.array([0.1,    0.1])
+D_R = np.array([0.1,    0.1])   # Decay rate for receptor
 
-cells = np.zeros(n_cells, dtype=[('position',   float, 2),
-                                 ('velocity',   float, 2),
-                                 ('edge_color', float, 4),
-                                 ('face_color', float, 4),
-                                 ('adhesin',    float, 2),
-                                 ('promoter',   float, 2),
-                                 ('transfac',   float, 2)]
-                                 )
+D_S = np.array([0.1,    0.1])   # Decay rate for surface signal
+
+H = np.array([0.1,    0.1])     # Hill coeff nonlinearity for promoter activation
+
+WT_T = np.multiply(W_T,T_T)     # Precalculation for transcription factor activation weighting
+
+
+cells = np.zeros(n_cells, dtype=[('position',       float, 2),
+                                 ('velocity',       float, 2),
+                                 ('edge_color',     float, 4),
+                                 ('face_color',     float, 4),
+                                 ('adhesin',        float, 2),
+                                 ('promoter',       float, 2),
+                                 ('trans_factor',   float, 2),
+                                 ('receptor',       float, 2),
+                                 ('surface_out',    float, 2),
+                                 ('surface_in',     float, 2),
+                                 ('receptor_act',   float, 2),
+                                 ])
 
 cells['position'] = np.random.uniform(0.35, 0.65, (n_cells, 2))
-
 cells['edge_color'][:,3] = np.ones (n_cells)
 cells['face_color'][:,3] = np.ones (n_cells) * 0.5
-
-cells['transfac'] = np.random.uniform (0.45,0.55, (n_cells,2))
+cells['trans_factor'] = np.random.uniform (0.45,0.55, (n_cells,2))
 
 scat = ax.scatter(cells['position'][:, 0], 
                   cells['position'][:, 1],
@@ -83,6 +102,8 @@ def adhesion (dis1, dis2, dis3, rep_lim, adh_lim, dis, cell1, cell2,A ):
         
 
 def update(frame_number):
+    if frame_number % 10  == 0:
+        cells['surface_in'] = np.zeros ((n_cells,2))
     
     for cell1, cell2 in it.permutations(cells,2):
         displacement = cell2['position'] - cell1['position']
@@ -91,6 +112,8 @@ def update(frame_number):
             direction = displacement/distance
             force = adhesion (dis1, dis2, dis3, rep_lim, adh_lim, distance,cell1,cell2, A)
             cell1['velocity'] += force * direction
+            if frame_number % 10  == 0:
+                cell1['surface_in'] += cell2['surface_out']*np.exp(-50*distance)
             
     cells['velocity'] += np.random.uniform(-heat, heat,(n_cells,2))
     for cell in cells:
@@ -109,12 +132,17 @@ def update(frame_number):
     
     if frame_number % 10  == 0:
         for cell in cells:
-            cell['adhesin']  += np.matmul(E_A, cell['promoter']) - np.multiply(D_A, cell['adhesin'])
-            cell['transfac'] += np.matmul(E_T, cell['promoter']) - np.multiply(D_T, cell['transfac'])
-            cell['promoter'] =  np.clip((np.matmul(WT_T, cell['transfac']) + T_B)/(np.matmul(W_T, cell['transfac']) + W_B) * H , 0,1)
+            cell['adhesin']         += np.matmul(E_A, cell['promoter']) - np.multiply(D_A, cell['adhesin'])
+            cell['trans_factor']    += np.matmul(E_T, cell['promoter']) - np.multiply(D_T, cell['trans_factor'])
+            cell['surface_out']     += np.matmul(E_S, cell['promoter']) - np.multiply(D_S, cell['surface_out'])
+            cell['receptor']        += np.matmul(E_R, cell['promoter']) - np.multiply(D_R, cell['receptor'])            
+            
+            cell['promoter'] =  np.clip((np.matmul(WT_T, cell['trans_factor']) + T_B)/(np.matmul(W_T, cell['trans_factor']) + W_B) * H , 0,1)
+            cell['receptor_act'] = np.multiply(np.matmul(W_S,cell['surface_in']), cell['receptor'])
             
     cells['face_color'][:,0] = np.clip(cells['adhesin'][:,0],0,1)
     cells['face_color'][:,1] = np.clip(cells['adhesin'][:,1],0,1)
+    cells['face_color'][:,2] = np.clip(cells['receptor_act'][:,0],0,1)
     
     scat.set_offsets(cells['position'])
     scat.set_edgecolors(cells['edge_color'])
