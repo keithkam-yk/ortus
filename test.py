@@ -87,7 +87,7 @@ cells = np.zeros(n_cells, dtype=[('position',       float, 2),
                                  ])
 
 cells[0]['alive'] = True
-cells['position'] = np.random.uniform(0.45, 0.55, (n_cells, 2))
+cells['position'] = np.random.uniform(0.4, 0.6, (n_cells, 2))
 cells['edge_color'][:,3] = np.ones (n_cells)
 cells['face_color'][:,3] = np.ones (n_cells) * 0.5
 cells['trans_factor'] = np.random.uniform (0.45,0.55, (n_cells,2))
@@ -191,11 +191,41 @@ plt.show()
 
 #%%
 start_time = time.time()
-for i in range (1000):
-    update(i)
+for a in range (1000):
+    update(a)
 print("--- %s seconds ---" % (time.time() - start_time))
 #%%
 import cProfile
-cProfile.run('update(10)',sort='cumulative')
+cProfile.run('update(10)',  sort='cumulative')
+cProfile.run('update(1)',   sort='cumulative')
+
 #%%
-cProfile.run('update(1)',sort='cumulative')
+def evaluate():
+    global cells
+    distances = distance_matrix(cells['position'][cells['alive']==True],cells['position'][cells['alive']==True])
+    connected = distances < 0.05
+    
+    num_cells = len(distances)
+    
+    labels = list(range(num_cells))
+    checked = [False] * num_cells
+    stack = []
+    
+    for i in range(num_cells):
+        if checked[i] == False:
+            stack.append(i)
+            checked[i] == True
+        while stack:
+            j = stack.pop()
+            for k in range(num_cells):
+                if checked[k] == False and connected[j][k] == True:
+                    stack.append(k)
+                    checked[k] = True
+                    labels[k] = i
+    blob = max(set(labels), key = labels.count)
+    mask = np.array(labels) == blob
+    return np.max(np.multiply(np.outer(mask,mask),distances))
+    
+    
+            
+    
