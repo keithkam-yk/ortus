@@ -24,8 +24,8 @@ adh_lim = 0.0005
 v_max = 0.002
 heat =  0.0015      
 
-A = np.array([[3,    1.5],      # Adhesin interactions
-              [1.5,  3  ]])
+A = np.array([[5,    1.5],      # Adhesin interactions
+              [1.5,  5  ]])
 
 E_A = np.array([[0.2,    0],    # Expression of adhesin
                 [0,    0.2]])
@@ -156,7 +156,7 @@ def update(frame_number):
                 for k, try_cell in enumerate (cells):
                     if try_cell['alive'] == False:
                         cells[k] = cells[new_cells[j]]
-                        cells[k]['position'] += np.random.uniform(-0.03,0.03,2)
+                        cells[k]['position'] += np.random.uniform(-0.3,0.3,2)
                         break
     
     velocities = np.linalg.norm(cells['velocity'],axis = 1)
